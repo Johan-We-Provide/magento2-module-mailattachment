@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <mail_attachments>
+            <general>
+                <enabled>1</enabled>
+            </general>
+            <settings>
+                <allow_file_rename>1</allow_file_rename>
+                <allow_file_dispersion>1</allow_file_dispersion>
+            </settings>
+        </mail_attachments>
+    </default>
+</config>

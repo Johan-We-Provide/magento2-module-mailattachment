@@ -1,15 +1,15 @@
 <?php
-declare(strict_types=1);
 
-namespace WeProvide\MailAttachment\Mail\Template;
+namespace WeProvide\MailAttachment\Model;
 
+use Laminas\Mime\Mime;
+use Laminas\Mime\Part;
+use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\App\TemplateTypesInterface;
 use Magento\Framework\Exception\LocalizedException;
-use Magento\Framework\Exception\MailException;
+use Magento\Framework\Filesystem;
 use Magento\Framework\Mail\AddressConverter;
-use Magento\Framework\Mail\EmailMessageInterface;
 use Magento\Framework\Mail\EmailMessageInterfaceFactory;
-use Magento\Framework\Mail\Exception\InvalidArgumentException;
 use Magento\Framework\Mail\MessageInterface;
 use Magento\Framework\Mail\MessageInterfaceFactory;
 use Magento\Framework\Mail\MimeInterface;
@@ -17,23 +17,82 @@ use Magento\Framework\Mail\MimeMessageInterfaceFactory;
 use Magento\Framework\Mail\MimePartInterfaceFactory;
 use Magento\Framework\Mail\Template\FactoryInterface;
 use Magento\Framework\Mail\Template\SenderResolverInterface;
-use Magento\Framework\Mail\TemplateInterface;
 use Magento\Framework\Mail\TransportInterface;
 use Magento\Framework\Mail\TransportInterfaceFactory;
 use Magento\Framework\ObjectManagerInterface;
 use Magento\Framework\Phrase;
-use Zend\Mime\Mime;
-use Zend\Mime\PartFactory;
+use Magento\MediaStorage\Model\File\UploaderFactory;
 
-/**
- * TransportBuilder
- *
- * @api
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
- * @since 100.0.2
- */
-class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
+class TransportBuilder implements TransportBuilderInterface
 {
+    /**
+     * Template Identifier
+     *
+     * @var string
+     */
+    protected $templateIdentifier;
+
+    /**
+     * Template Model
+     *
+     * @var string
+     */
+    protected $templateModel;
+
+    /**
+     * Template Variables
+     *
+     * @var array
+     */
+    protected $templateVars;
+
+    /**
+     * Template Options
+     *
+     * @var array
+     */
+    protected $templateOptions;
+
+    /**
+     * Mail Transport
+     *
+     * @var TransportInterface
+     */
+    protected $transport;
+
+    /**
+     * Template Factory
+     *
+     * @var FactoryInterface
+     */
+    protected $templateFactory;
+
+    /**
+     * Object Manager
+     *
+     * @var ObjectManagerInterface
+     */
+    protected $objectManager;
+
+    /**
+     * Message
+     *
+     * @var MessageInterface
+     */
+    protected $message;
+
+    /**
+     * Sender resolver
+     *
+     * @var SenderResolverInterface
+     */
+    protected $_senderResolver;
+
+    /**
+     * @var TransportInterfaceFactory
+     */
+    protected $mailTransportFactory;
+
     /**
      * Param that used for storing all message data until it will be used
      *
@@ -61,18 +120,42 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
      */
     private $addressConverter;
 
+    /**
+     * @var array
+     */
     protected $attachments = [];
 
-    protected $partFactory;
+    /**
+     * @var Filesystem
+     */
+    private $fileSystem;
 
     /**
-     * TransportBuilder constructor
+     * @var UploaderFactory
+     */
+    private $uploaderFactory;
+
+    /**
+     * @var ConfigInterface
+     */
+    private $config;
+
+    /**
+     * @var MessageInterfaceFactory|null
+     */
+    private $messageFactory;
+
+    /**
+     * TransportBuilder constructor.
      *
      * @param FactoryInterface $templateFactory
      * @param MessageInterface $message
      * @param SenderResolverInterface $senderResolver
      * @param ObjectManagerInterface $objectManager
      * @param TransportInterfaceFactory $mailTransportFactory
+     * @param Filesystem $fileSystem
+     * @param UploaderFactory $uploaderFactory
+     * @param ConfigInterface $config
      * @param MessageInterfaceFactory|null $messageFactory
      * @param EmailMessageInterfaceFactory|null $emailMessageInterfaceFactory
      * @param MimeMessageInterfaceFactory|null $mimeMessageInterfaceFactory
@@ -87,13 +170,15 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
         SenderResolverInterface $senderResolver,
         ObjectManagerInterface $objectManager,
         TransportInterfaceFactory $mailTransportFactory,
+        Filesystem $fileSystem,
+        UploaderFactory $uploaderFactory,
+        ConfigInterface $config,
         MessageInterfaceFactory $messageFactory = null,
         EmailMessageInterfaceFactory $emailMessageInterfaceFactory = null,
         MimeMessageInterfaceFactory $mimeMessageInterfaceFactory = null,
         MimePartInterfaceFactory $mimePartInterfaceFactory = null,
         AddressConverter $addressConverter = null
     ) {
-        parent::__construct($templateFactory, $message, $senderResolver, $objectManager, $mailTransportFactory, $messageFactory, $emailMessageInterfaceFactory, $mimeMessageInterfaceFactory, $mimePartInterfaceFactory, $addressConverter);
         $this->templateFactory = $templateFactory;
         $this->objectManager = $objectManager;
         $this->_senderResolver = $senderResolver;
@@ -106,16 +191,15 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
             ->get(MimePartInterfaceFactory::class);
         $this->addressConverter = $addressConverter ?: $this->objectManager
             ->get(AddressConverter::class);
-        $this->partFactory = $objectManager->get(PartFactory::class);
+        $this->message = $message;
+        $this->fileSystem = $fileSystem;
+        $this->uploaderFactory = $uploaderFactory;
+        $this->config = $config;
+        $this->messageFactory = $messageFactory;
     }
 
     /**
-     * Add cc address
-     *
-     * @param array|string $address
-     * @param string $name
-     *
-     * @return $this
+     * @inheritDoc
      */
     public function addCc($address, $name = '')
     {
@@ -125,13 +209,7 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Add to address
-     *
-     * @param array|string $address
-     * @param string $name
-     *
-     * @return $this
-     * @throws InvalidArgumentException
+     * @inheritDoc
      */
     public function addTo($address, $name = '')
     {
@@ -141,12 +219,7 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Add bcc address
-     *
-     * @param array|string $address
-     *
-     * @return $this
-     * @throws InvalidArgumentException
+     * @inheritDoc
      */
     public function addBcc($address)
     {
@@ -156,13 +229,7 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Set Reply-To Header
-     *
-     * @param string $email
-     * @param string|null $name
-     *
-     * @return $this
-     * @throws InvalidArgumentException
+     * @inheritDoc
      */
     public function setReplyTo($email, $name = null)
     {
@@ -172,32 +239,7 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Set mail from address
-     *
-     * @param string|array $from
-     *
-     * @return $this
-     * @throws InvalidArgumentException
-     * @see setFromByScope()
-     *
-     * @deprecated 102.0.1 This function sets the from address but does not provide
-     * a way of setting the correct from addresses based on the scope.
-     */
-    public function setFrom($from)
-    {
-        return $this->setFromByScope($from);
-    }
-
-    /**
-     * Set mail from address by scopeId
-     *
-     * @param string|array $from
-     * @param string|int $scopeId
-     *
-     * @return $this
-     * @throws InvalidArgumentException
-     * @throws MailException
-     * @since 102.0.1
+     * @inheritDoc
      */
     public function setFromByScope($from, $scopeId = null)
     {
@@ -208,13 +250,9 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Set template identifier
-     *
-     * @param string $templateIdentifier
-     *
-     * @return $this
+     * @inheritDoc
      */
-    public function setTemplateIdentifier($templateIdentifier)
+    public function setTemplateIdentifier(string $templateIdentifier)
     {
         $this->templateIdentifier = $templateIdentifier;
 
@@ -222,26 +260,18 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Set template model
-     *
-     * @param string $templateModel
-     *
-     * @return $this
+     * @inheritDoc
      */
-    public function setTemplateModel($templateModel)
+    public function setTemplateModel(string $templateModel)
     {
         $this->templateModel = $templateModel;
         return $this;
     }
 
     /**
-     * Set template vars
-     *
-     * @param array $templateVars
-     *
-     * @return $this
+     * @inheritDoc
      */
-    public function setTemplateVars($templateVars)
+    public function setTemplateVars(array $templateVars)
     {
         $this->templateVars = $templateVars;
 
@@ -249,12 +279,9 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Set template options
-     *
-     * @param array $templateOptions
-     * @return $this
+     * @inheritDoc
      */
-    public function setTemplateOptions($templateOptions)
+    public function setTemplateOptions(array $templateOptions)
     {
         $this->templateOptions = $templateOptions;
 
@@ -262,10 +289,7 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Get mail transport
-     *
-     * @return TransportInterface
-     * @throws LocalizedException
+     * @inheritDoc
      */
     public function getTransport()
     {
@@ -280,11 +304,9 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Reset object state
-     *
-     * @return $this
+     * @inheritDoc
      */
-    protected function reset()
+    public function reset()
     {
         $this->messageData = [];
         $this->templateIdentifier = null;
@@ -294,11 +316,9 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Get template
-     *
-     * @return TemplateInterface
+     * @inheritDoc
      */
-    protected function getTemplate()
+    public function getTemplate()
     {
         return $this->templateFactory->get($this->templateIdentifier, $this->templateModel)
             ->setVars($this->templateVars)
@@ -306,24 +326,20 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
     }
 
     /**
-     * Prepare message.
-     *
-     * @return $this
-     * @throws LocalizedException if template type is unknown
+     * @inheritDoc
      */
-    protected function prepareMessage()
+    public function prepareMessage()
     {
         $template = $this->getTemplate();
-        $content  = $template->processTemplate();
+        $content = $template->processTemplate();
 
-        $mimeType = null;
         switch ($template->getType()) {
             case TemplateTypesInterface::TYPE_TEXT:
-                $mimeType = MimeInterface::TYPE_TEXT;
+                $part['type'] = MimeInterface::TYPE_TEXT;
                 break;
 
             case TemplateTypesInterface::TYPE_HTML:
-                $mimeType = MimeInterface::TYPE_HTML;
+                $part['type'] = MimeInterface::TYPE_HTML;
                 break;
 
             default:
@@ -332,59 +348,78 @@ class TransportBuilder extends \Magento\Framework\Mail\Template\TransportBuilder
                 );
         }
 
-        $mimePart                  = $this->mimePartInterfaceFactory->create(['content' => $content, 'type' => $mimeType]);
-        $parts                     = count($this->attachments) ? array_merge([$mimePart], $this->attachments) : [$mimePart];
+        /** @var \Magento\Framework\Mail\MimePartInterface $mimePart */
+        $mimePart = $this->mimePartInterfaceFactory->create(['content' => $content]);
+        $this->messageData['encoding'] = $mimePart->getCharset();
+        $parts = count($this->attachments) ? array_merge([$mimePart], $this->attachments) : [$mimePart];
+
         $this->messageData['body'] = $this->mimeMessageInterfaceFactory->create(
             ['parts' => $parts]
         );
 
         $this->messageData['subject'] = html_entity_decode(
-            (string)$template->getSubject(),
+            (string) $template->getSubject(),
             ENT_QUOTES
         );
+
         $this->message = $this->emailMessageInterfaceFactory->create($this->messageData);
 
         return $this;
     }
 
     /**
-     * Handles possible incoming types of email (string or array)
-     *
-     * @param string $addressType
-     * @param string|array $email
-     * @param string|null $name
-     *
-     * @return void
-     * @throws InvalidArgumentException
+     * @inheritDoc
      */
-    private function addAddressByType(string $addressType, $email, ?string $name = null): void
+    public function addAttachment($content, string $filename, string $filetype)
     {
-        if (is_string($email)) {
-            $this->messageData[$addressType][] = $this->addressConverter->convert($email, $name);
-
-            return;
-        }
-
-        $convertedAddressArray = $this->addressConverter->convertMany($email);
-        $this->messageData[$addressType] = array_merge($this->messageData[$addressType] ?? [], $convertedAddressArray);
-    }
-
-    /**
-     * @param string|null $content
-     * @param string|null $fileName
-     * @param string|null $fileType
-     * @return TransportBuilder
-     */
-    public function addAttachment(?string $content, ?string $fileName, ?string $fileType)
-    {
-        $attachmentPart = $this->partFactory->create();
-        $attachmentPart->setContent($content)
-            ->setType($fileType)
-            ->setFileName($fileName)
+        $attachmentPart = new Part($content);
+        $attachmentPart
+            ->setType($filetype)
+            ->setFileName($filename)
             ->setDisposition(Mime::DISPOSITION_ATTACHMENT)
             ->setEncoding(Mime::ENCODING_BASE64);
         $this->attachments[] = $attachmentPart;
 
         return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createAttachments(array $files)
+    {
+        $mediaDir = $this->fileSystem->getDirectoryRead(DirectoryList::MEDIA);
+        $attachments = [];
+        foreach ($files as $key => $image) {
+            if ($image['size']) {
+                $uploader = $this->uploaderFactory->create(['fileId' => 'images[' . $key . ']']);
+                $uploader->setAllowedExtensions($this->config->getAllowedExtensions(true));
+                $uploader->setAllowRenameFiles($this->config->isAllowedFileRenaming());
+                $uploader->setFilesDispersion($this->config->isAllowedFileDispersion());
+                $attachments[] = $uploader->save($mediaDir->getAbsolutePath() . 'fileUpload');
+            }
+        }
+
+        return $attachments;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function addAddressByType(string $addressType, $email, ?string $name = null)
+    {
+        if (is_string($email)) {
+            $this->messageData[$addressType][] = $this->addressConverter->convert($email, $name);
+            return;
+        }
+        $convertedAddressArray = $this->addressConverter->convertMany($email);
+        if (isset($this->messageData[$addressType])) {
+            $this->messageData[$addressType] = array_merge(
+                $this->messageData[$addressType],
+                $convertedAddressArray
+            );
+        } else {
+            $this->messageData[$addressType] = $convertedAddressArray;
+        }
     }
 }
