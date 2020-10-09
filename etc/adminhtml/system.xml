@@ -9,30 +9,32 @@
             <tab>we_provide</tab>
             <resource>WeProvide_MailAttachment::mail_attachments</resource>
             <group id="general" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                <label>General</label>
+                <label>general</label>
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
-                    <label>Enable Transport Builder</label>
+                    <label>enable</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <backend_model>WeProvide\MailAttachment\Model\System\Config\Backend\Links</backend_model>
                 </field>
             </group>
             <group id="settings" tranlate="label" type="text" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
-                <label>Form Settings</label>
+                <label>form_settings</label>
                 <field id="add_file_amount" tranlate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>The amount of file upload buttons on the form</label>
+                    <label>amount_input_fields</label>
                 </field>
                 <field id="allowed_extensions" tranlate="label comment" type="textarea" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Allowed file extensions</label>
-                    <comment><![CDATA[Enter the allowed extensions on the forms, seperated by "," <br><br>For Example: <br> .jpg, .png, .pdf <br>]]></comment>
+                    <label>allowed_extensions</label>
+                    <comment><![CDATA[allowed_extensions_comment]]></comment>
                 </field>
                 <field id="allow_file_rename" tranlate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Allow file renaming</label>
+                    <label>allow_rename</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment><![CDATA[Enable file renaming]]></comment>
                 </field>
                 <field id="allow_file_dispersion" tranlate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Allow file dispersion</label>
+                    <label>allow_dispersion</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>
+                        <![CDATA[allow_dispersion_comment]]>
+                    </comment>
                 </field>
             </group>
         </section>
