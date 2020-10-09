@@ -4,7 +4,7 @@ Override the Magento TransportBuilder with attachment functionality
 
 ## Installation
 
-1. `composer require weprovide/transportbuilder`
+1. `composer require weprovide/magento2-module-mailattachment`
 2. `bin/magento setup:upgrade`
 
 ## Usage example controller
