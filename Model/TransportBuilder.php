@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace WeProvide\MailAttachment\Model;
 
 use Laminas\Mime\Mime;
@@ -370,6 +372,26 @@ class TransportBuilder implements TransportBuilderInterface
     /**
      * @inheritDoc
      */
+    public function addAddressByType(string $addressType, $email, ?string $name = null)
+    {
+        if (is_string($email)) {
+            $this->messageData[$addressType][] = $this->addressConverter->convert($email, $name);
+            return;
+        }
+        $convertedAddressArray = $this->addressConverter->convertMany($email);
+        if (isset($this->messageData[$addressType])) {
+            $this->messageData[$addressType] = array_merge(
+                $this->messageData[$addressType],
+                $convertedAddressArray
+            );
+        } else {
+            $this->messageData[$addressType] = $convertedAddressArray;
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function addAttachment($content, string $filename, string $filetype)
     {
         $attachmentPart = new Part($content);
@@ -390,9 +412,9 @@ class TransportBuilder implements TransportBuilderInterface
     {
         $mediaDir = $this->fileSystem->getDirectoryRead(DirectoryList::MEDIA);
         $attachments = [];
-        foreach ($files as $key => $image) {
-            if ($image['size']) {
-                $uploader = $this->uploaderFactory->create(['fileId' => 'images[' . $key . ']']);
+        foreach ($files as $key => $file) {
+            if ($file['size']) {
+                $uploader = $this->uploaderFactory->create(['fileId' => 'files[' . $key . ']']);
                 $uploader->setAllowedExtensions($this->config->getAllowedExtensions(true));
                 $uploader->setAllowRenameFiles($this->config->isAllowedFileRenaming());
                 $uploader->setFilesDispersion($this->config->isAllowedFileDispersion());
@@ -401,25 +423,5 @@ class TransportBuilder implements TransportBuilderInterface
         }
 
         return $attachments;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function addAddressByType(string $addressType, $email, ?string $name = null)
-    {
-        if (is_string($email)) {
-            $this->messageData[$addressType][] = $this->addressConverter->convert($email, $name);
-            return;
-        }
-        $convertedAddressArray = $this->addressConverter->convertMany($email);
-        if (isset($this->messageData[$addressType])) {
-            $this->messageData[$addressType] = array_merge(
-                $this->messageData[$addressType],
-                $convertedAddressArray
-            );
-        } else {
-            $this->messageData[$addressType] = $convertedAddressArray;
-        }
     }
 }

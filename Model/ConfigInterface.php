@@ -1,8 +1,8 @@
 <?php
 
+declare(strict_types=1);
 
 namespace WeProvide\MailAttachment\Model;
-
 
 interface ConfigInterface
 {

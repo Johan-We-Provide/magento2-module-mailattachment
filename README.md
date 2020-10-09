@@ -7,7 +7,7 @@ Override the Magento TransportBuilder with attachment functionality
 1. `composer require weprovide/transportbuilder`
 2. `bin/magento setup:upgrade`
 
-## Usage example
+## Usage example controller
 
 ```php
 <?php
@@ -56,7 +56,83 @@ class Index extends Action
     }
 }
 ```
+## Usage example ViewModel
+If you are using a ViewModel for your Block, extend the ViewModel with the ViewModel from MailAttachments
+```php
+<?php
+namespace YourNameSpace\YourModule\ViewModel;
 
+use WeProvide\MailAttachment\ViewModel\ViewModel;
+
+class MyViewModel extends ViewModel
+{
+
+}
+```
+## Usage inside Block class (If ViewModel can't be loaded as a child of MyBlock)
+If you want to load the MailAttachments ViewModel in your Block class
+```php
+<?php
+namespace YourNameSpace\YourModule\Block;
+
+use Magento\Framework\View\Element\Template;
+use WeProvide\MailAttachment\ViewModel\ViewModelInterface;
+
+class MyBlock extends Template
+{
+    /**
+    * @var ViewModelInterface
+    */
+    protected $viewModel;
+
+    /**
+    * Block constructor
+
+    * @param Template\Context $context
+    * @param ViewModelInterface $viewModel
+    * @param array $data
+    */
+    public function __construct(Template\Context $context, ViewModelInterface $viewModel, array $data = []) 
+    {
+        parent::__construct($context, $data);
+        $this->viewModel = $viewModel;
+    }
+    
+    /**
+    * @return ViewModelInterface
+    */
+    public  function getViewModel()
+    {
+        return $this->viewModel;
+    }
+
+}
+```
+
+The ViewModel of the Mailattachments module has 3 methods that can be used to display the file input fields
+```php
+    /**
+     * Get the amount of file input fields that can be shown on the form.
+     *
+     * @return string
+     */
+    public function getFileInputAmount();
+
+    /**
+     * Get the allowed file extensions for the file input fields
+     *
+     * @return array
+     */
+    public function getAllowedExtensions();
+
+    /**
+     * Get the html for the file input fields
+     *
+     * @param string $inputFieldName
+     * @return string
+     */
+    public function getFileInputsHtml(string $inputFieldName = 'files');
+```
 ## Api
 
 `public function addAttachment(

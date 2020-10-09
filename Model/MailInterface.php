@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace WeProvide\MailAttachment\Model;
 
 use Exception;
@@ -16,7 +18,7 @@ interface MailInterface
      * @return void
      * @since 100.2.0
      */
-    public function send($replyTo, array $variables, array $attachments = null, $config = null);
+    public function send($replyTo, array $variables, array $attachments = null, $config = null): void;
 
     /**
      * Validate the parameters coming from the form.
@@ -25,5 +27,5 @@ interface MailInterface
      * @return array
      * @throws Exception
      */
-    public function validatedParams(array $params);
+    public function validatedParams(array $params): array;
 }

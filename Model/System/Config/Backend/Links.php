@@ -1,8 +1,8 @@
 <?php
 
+declare(strict_types=1);
 
 namespace WeProvide\MailAttachment\Model\System\Config\Backend;
-
 
 use Magento\Cms\Model\Block;
 use Magento\Config\Model\Config\Backend\Cache;

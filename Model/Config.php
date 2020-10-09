@@ -1,8 +1,8 @@
 <?php
 
+declare(strict_types=1);
 
 namespace WeProvide\MailAttachment\Model;
-
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\ScopeInterface;
